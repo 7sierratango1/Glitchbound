@@ -1,0 +1,10 @@
+{
+  "name":"Glitchbound: Offline Hero",
+  "short_name":"Glitchbound",
+  "start_url":"./index.html",
+  "display":"standalone",
+  "orientation":"portrait",
+  "background_color":"#17131f",
+  "theme_color":"#17131f",
+  "icons":[]
+}
