@@ -1,109 +1,11 @@
 <!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
-  <meta name="theme-color" content="#17131f" />
-  <title>Glitchbound: Offline Hero</title>
-  <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="stylesheet" href="styles.css" />
-</head>
-<body>
-  <main id="app">
-    <section id="screen-home" class="screen active">
-      <div class="topbar">
-        <div><strong>GLITCHBOUND</strong><span class="subtitle">Offline Hero</span></div>
-        <div class="currency-row"><span>🪙 <b id="coinsHome">0</b></span><span>💎 <b id="gemsHome">0</b></span></div>
-      </div>
-      <div class="hero-card">
-        <div class="hero-orb">⚡</div>
-        <div>
-          <h1>The Malfunction</h1>
-          <p>Persistent hero progression. Every battle makes you stronger.</p>
-        </div>
-      </div>
-      <div class="character-card">
-        <div class="char-head"><strong>HERO LEVEL <b id="charLevel">1</b></strong><span id="charXpText">0 / 100 XP</span></div>
-        <div class="char-xp"><i id="charXpBar"></i></div>
-        <div class="char-stats">
-          <span>⚔️ <b id="charDamage">20</b><small>Damage</small></span>
-          <span>🛡️ <b id="charArmor">0</b><small>Armor</small></span>
-          <span>❤️ <b id="charHp">125</b><small>HP</small></span>
-          <span>⚡ <b id="charRate">1.25</b><small>Atk/s</small></span>
-        </div>
-      </div>
-      <div class="camp-wrap compact-camp">
-        <div class="campfire">🔥</div>
-        <div class="camp-ring"></div>
-        <div class="camp-label">Base Camp</div>
-      </div>
-      <div class="quest-card">
-        <div><small>MAIN QUEST</small><strong id="questText">Clear Stage 1</strong></div>
-        <button id="btnPlay" class="primary">PLAY</button>
-      </div>
-      <nav class="bottom-nav">
-        <button data-open="home" class="navbtn selected">🏕️<span>Camp</span></button>
-        <button data-open="stages" class="navbtn">🗺️<span>Stages</span></button>
-        <button data-open="upgrades" class="navbtn">⬆️<span>Upgrades</span></button>
-        <button data-open="gear" class="navbtn">🛡️<span>Gear</span></button>
-        <button data-open="settings" class="navbtn">⚙️<span>Settings</span></button>
-      </nav>
-    </section>
-
-    <section id="screen-stages" class="screen panel-screen">
-      <header class="panel-header"><button class="back">←</button><h2>Stages</h2><span></span></header>
-      <div id="stageList" class="stage-list"></div>
-    </section>
-
-    <section id="screen-upgrades" class="screen panel-screen">
-      <header class="panel-header"><button class="back">←</button><h2>Permanent Upgrades</h2><span>🪙 <b id="coinsUp">0</b></span></header>
-      <div class="tabs"><button class="tab active" data-tab="ability">ABILITY</button><button class="tab" data-tab="special">SPECIAL</button></div>
-      <div class="skill-summary" id="skillSummary"></div>
-      <div id="upgradeList" class="upgrade-list"></div>
-    </section>
-
-    <section id="screen-gear" class="screen panel-screen">
-      <header class="panel-header"><button class="back">←</button><h2>Gear</h2><span></span></header>
-      <div class="gear-hero"><div class="avatar">⚔️</div><div><strong id="powerText">Power 100</strong><small>Equipment and hero level stack together.</small></div></div>
-      <div id="gearGrid" class="gear-grid"></div>
-    </section>
-
-    <section id="screen-settings" class="screen panel-screen">
-      <header class="panel-header"><button class="back">←</button><h2>Settings</h2><span></span></header>
-      <div class="settings-card">
-        <label><span>Sound effects</span><input id="soundToggle" type="checkbox" checked></label>
-        <label><span>Screen shake</span><input id="shakeToggle" type="checkbox" checked></label>
-        <label><span>Left-handed controls</span><input id="leftToggle" type="checkbox"></label>
-        <button id="resetSave" class="danger">RESET SAVE DATA</button>
-        <p class="fineprint">Character level, XP, skill ranks, gear and upgrades are all stored locally on this device.</p>
-      </div>
-    </section>
-
-    <section id="screen-game" class="screen game-screen">
-      <canvas id="gameCanvas" width="420" height="760"></canvas>
-      <div class="game-hud top">
-        <div class="level-pill">LV <b id="runLevel">1</b></div>
-        <div class="bars">
-          <div class="bar hp"><i id="hpBar"></i></div>
-          <div class="bar xp"><i id="xpBar"></i></div>
-        </div>
-        <button id="pauseBtn">⏸</button>
-      </div>
-      <div class="game-hud meta"><span>💀 <b id="killCount">0</b></span><span>⏱ <b id="runTime">0:00</b></span><span>🪙 <b id="runCoins">0</b></span><span>⭐ <b id="runHeroXp">0</b></span></div>
-      <div id="bossBanner" class="boss-banner hidden">BOSS IN <b>5</b></div>
-      <div id="choiceOverlay" class="modal hidden">
-        <div class="modal-card">
-          <h2>SKILL UPGRADE</h2><p>Choose a skill. Its rank stays with this hero permanently.</p><div id="choiceList"></div>
-        </div>
-      </div>
-      <div id="pauseOverlay" class="modal hidden">
-        <div class="modal-card compact"><h2>Paused</h2><button id="resumeBtn" class="primary">RESUME</button><button id="quitBtn">QUIT RUN</button></div>
-      </div>
-      <div id="resultOverlay" class="modal hidden">
-        <div class="modal-card"><h2 id="resultTitle">RUN COMPLETE</h2><div id="resultStats"></div><button id="resultContinue" class="primary">CONTINUE</button></div>
-      </div>
-    </section>
-  </main>
-  <script src="game.js"></script>
-</body>
-</html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"><meta name="theme-color" content="#17131f"><title>Glitchbound: Offline Hero</title><link rel="manifest" href="manifest.webmanifest"><link rel="stylesheet" href="styles.css"></head><body><main id="app">
+<section id="screen-home" class="screen active"><div class="topbar"><div><strong>GLITCHBOUND</strong><span class="subtitle">Offline Hero</span></div><div class="currency-row"><span>🪙 <b id="coinsHome">0</b></span><span>💎 <b id="gemsHome">0</b></span></div></div><div class="hero-card"><div class="hero-orb">⚡</div><div><h1>The Malfunction</h1><p>Persistent hero progression. Every battle makes you stronger.</p></div></div><div class="character-card"><div class="char-head"><strong>HERO LEVEL <b id="charLevel">1</b></strong><span id="charXpText">0 / 100 XP</span></div><div class="char-xp"><i id="charXpBar"></i></div><div class="char-stats"><span>⚔️ <b id="charDamage">20</b><small>Damage</small></span><span>🛡️ <b id="charArmor">0</b><small>Armor</small></span><span>❤️ <b id="charHp">125</b><small>HP</small></span><span>⚡ <b id="charRate">1.25</b><small>Atk/s</small></span></div></div><div class="camp-wrap compact-camp"><div class="campfire">🔥</div><div class="camp-ring"></div><div class="camp-label">Base Camp</div></div><div class="quest-card"><div><small>MAIN QUEST</small><strong id="questText">Clear Stage 1</strong></div><button id="btnPlay" class="primary">PLAY</button></div><nav class="bottom-nav"><button data-open="home" class="navbtn selected">🏕️<span>Camp</span></button><button data-open="stages" class="navbtn">🗺️<span>Stages</span></button><button data-open="upgrades" class="navbtn">⬆️<span>Upgrades</span></button><button data-open="gear" class="navbtn">🛡️<span>Gear</span></button><button data-open="settings" class="navbtn">⚙️<span>Settings</span></button></nav></section>
+<section id="screen-stages" class="screen panel-screen"><header class="panel-header"><button class="back">←</button><h2>Stages</h2><span></span></header><div id="stageList" class="stage-list"></div></section>
+<section id="screen-upgrades" class="screen panel-screen"><header class="panel-header"><button class="back">←</button><h2>Permanent Upgrades</h2><span>🪙 <b id="coinsUp">0</b></span></header><div class="tabs"><button class="tab active" data-tab="ability">ABILITY</button><button class="tab" data-tab="special">SPECIAL</button></div><div class="skill-summary" id="skillSummary"></div><div id="upgradeList" class="upgrade-list"></div></section>
+<section id="screen-gear" class="screen panel-screen"><header class="panel-header"><button class="back">←</button><h2>Gear</h2><span></span></header><div class="gear-hero"><div class="avatar">⚔️</div><div><strong id="powerText">Power 100</strong><small>Equipment and hero level stack together.</small></div></div><div id="gearGrid" class="gear-grid"></div></section>
+<section id="screen-settings" class="screen panel-screen"><header class="panel-header"><button class="back">←</button><h2>Settings</h2><span></span></header><div class="settings-card"><label><span>Sound effects</span><input id="soundToggle" type="checkbox" checked></label><label><span>Screen shake</span><input id="shakeToggle" type="checkbox" checked></label><label><span>Left-handed controls</span><input id="leftToggle" type="checkbox"></label><button id="resetSave" class="danger">RESET SAVE DATA</button><p class="fineprint">Character level, XP, skill ranks, gear and upgrades are all stored locally on this device.</p></div></section>
+<section id="screen-game" class="screen game-screen"><canvas id="gameCanvas" width="420" height="760"></canvas><div class="game-hud top"><div class="level-pill">LV <b id="runLevel">1</b></div><div class="bars"><div class="bar hp"><i id="hpBar"></i></div><div class="bar xp"><i id="xpBar"></i></div></div><button id="pauseBtn">⏸</button></div><div class="game-hud meta"><span>💀 <b id="killCount">0</b></span><span>⏱ <b id="runTime">0:00</b></span><span>🪙 <b id="runCoins">0</b></span><span>⭐ <b id="runHeroXp">0</b></span></div><div id="bossBanner" class="boss-banner hidden">BOSS IN <b>5</b></div>
+<div id="skillBar" class="skill-bar"><button id="skillFire" class="skill-btn fire"><b>🔥</b><span>FIRE</span><i></i></button><button id="skillFrost" class="skill-btn frost"><b>❄️</b><span>FROST</span><i></i></button><button id="skillPoison" class="skill-btn poison"><b>☠️</b><span>POISON</span><i></i></button><button id="skillBlades" class="skill-btn blades"><b>⚔️</b><span>BLADES</span><i></i></button></div>
+<div id="choiceOverlay" class="modal hidden"><div class="modal-card"><h2>SKILL UPGRADE</h2><p>Choose a skill. Its rank stays with this hero permanently.</p><div id="choiceList"></div></div></div><div id="pauseOverlay" class="modal hidden"><div class="modal-card compact"><h2>Paused</h2><button id="resumeBtn" class="primary">RESUME</button><button id="quitBtn">QUIT RUN</button></div></div><div id="resultOverlay" class="modal hidden"><div class="modal-card"><h2 id="resultTitle">RUN COMPLETE</h2><div id="resultStats"></div><button id="resultContinue" class="primary">CONTINUE</button></div></div></section>
+</main><script src="game.js"></script></body></html>
