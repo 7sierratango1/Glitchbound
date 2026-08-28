@@ -19,10 +19,20 @@
         <div class="hero-orb">⚡</div>
         <div>
           <h1>The Malfunction</h1>
-          <p>Fight, level, loot, upgrade. No ads. No account. No internet.</p>
+          <p>Persistent hero progression. Every battle makes you stronger.</p>
         </div>
       </div>
-      <div class="camp-wrap">
+      <div class="character-card">
+        <div class="char-head"><strong>HERO LEVEL <b id="charLevel">1</b></strong><span id="charXpText">0 / 100 XP</span></div>
+        <div class="char-xp"><i id="charXpBar"></i></div>
+        <div class="char-stats">
+          <span>⚔️ <b id="charDamage">20</b><small>Damage</small></span>
+          <span>🛡️ <b id="charArmor">0</b><small>Armor</small></span>
+          <span>❤️ <b id="charHp">125</b><small>HP</small></span>
+          <span>⚡ <b id="charRate">1.25</b><small>Atk/s</small></span>
+        </div>
+      </div>
+      <div class="camp-wrap compact-camp">
         <div class="campfire">🔥</div>
         <div class="camp-ring"></div>
         <div class="camp-label">Base Camp</div>
@@ -48,12 +58,13 @@
     <section id="screen-upgrades" class="screen panel-screen">
       <header class="panel-header"><button class="back">←</button><h2>Permanent Upgrades</h2><span>🪙 <b id="coinsUp">0</b></span></header>
       <div class="tabs"><button class="tab active" data-tab="ability">ABILITY</button><button class="tab" data-tab="special">SPECIAL</button></div>
+      <div class="skill-summary" id="skillSummary"></div>
       <div id="upgradeList" class="upgrade-list"></div>
     </section>
 
     <section id="screen-gear" class="screen panel-screen">
       <header class="panel-header"><button class="back">←</button><h2>Gear</h2><span></span></header>
-      <div class="gear-hero"><div class="avatar">⚔️</div><div><strong id="powerText">Power 100</strong><small>Equipment improves every run.</small></div></div>
+      <div class="gear-hero"><div class="avatar">⚔️</div><div><strong id="powerText">Power 100</strong><small>Equipment and hero level stack together.</small></div></div>
       <div id="gearGrid" class="gear-grid"></div>
     </section>
 
@@ -64,7 +75,7 @@
         <label><span>Screen shake</span><input id="shakeToggle" type="checkbox" checked></label>
         <label><span>Left-handed controls</span><input id="leftToggle" type="checkbox"></label>
         <button id="resetSave" class="danger">RESET SAVE DATA</button>
-        <p class="fineprint">All progress is stored locally on this device. No network connection is required after first load.</p>
+        <p class="fineprint">Character level, XP, skill ranks, gear and upgrades are all stored locally on this device.</p>
       </div>
     </section>
 
@@ -78,11 +89,11 @@
         </div>
         <button id="pauseBtn">⏸</button>
       </div>
-      <div class="game-hud meta"><span>💀 <b id="killCount">0</b></span><span>⏱ <b id="runTime">0:00</b></span><span>🪙 <b id="runCoins">0</b></span></div>
+      <div class="game-hud meta"><span>💀 <b id="killCount">0</b></span><span>⏱ <b id="runTime">0:00</b></span><span>🪙 <b id="runCoins">0</b></span><span>⭐ <b id="runHeroXp">0</b></span></div>
       <div id="bossBanner" class="boss-banner hidden">BOSS IN <b>5</b></div>
       <div id="choiceOverlay" class="modal hidden">
         <div class="modal-card">
-          <h2>LEVEL UP</h2><p>Choose one power.</p><div id="choiceList"></div>
+          <h2>SKILL UPGRADE</h2><p>Choose a skill. Its rank stays with this hero permanently.</p><div id="choiceList"></div>
         </div>
       </div>
       <div id="pauseOverlay" class="modal hidden">
