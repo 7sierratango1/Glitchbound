@@ -1,0 +1,27 @@
+name: Debug Glitchbound v1.1.1
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/debug-v111.yml']
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cat .build/v083.part1 .build/v083.part2 .build/v083.part3 | base64 -d | gzip -d > app/src/main/assets/www/game.js
+      - run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('.build/v100_patch.py');s=p.read_text();s=s.replace("must(old,new,'choice caps')", "s,n=re.subn(r\"let pool=\\[\\.\\.\\.SKILLS\\].*?,el=\\$\\('#choiceList'\\);\",new,s,count=1); n==1 or (_ for _ in ()).throw(SystemExit('missing choice caps'))");p.write_text(s)
+          PY
+          python3 .build/v100_patch.py
+          python3 .build/v101_patch.py
+          python3 .build/v102_patch.py
+          python3 .build/v103_patch.py
+          python3 .build/v110_patch.py
+          python3 .build/v111_patch.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v111-generated-js
+          path: app/src/main/assets/www/game.js
+      - run: node --check app/src/main/assets/www/game.js
