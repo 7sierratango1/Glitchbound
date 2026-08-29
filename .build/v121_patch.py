@@ -48,3 +48,4 @@ update=function(dt){
 };
 '''
 head,tail=s.rsplit(end,1);p.write_text(head+'\n'+block+'\n'+end+tail)
+# build trigger: v1.2.1
