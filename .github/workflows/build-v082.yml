@@ -1,0 +1,125 @@
+name: Build Glitchbound v0.8.2
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/build-v082.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply v0.8.2 balance and navigation changes
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('app/src/main/assets/www/game.js')
+          s=p.read_text()
+          def rep(old,new,label):
+              global s
+              if old not in s:
+                  raise SystemExit(f'Missing patch target: {label}')
+              s=s.replace(old,new,1)
+
+          rep("mastery:{sacrificed:{},halfDamage:{},processed10:{},processed20:{},processed30:{}}","mastery:{sacrificed:{},halfDamage:{},processed10:{},processed20:{},processed30:{},slotBonus:0}","mastery slot bonus")
+
+          rep("function need(l){return Math.floor(90+42*Math.pow(l,1.34)+l*14)}\nfunction addXp(v){save.character.xp+=Math.floor(v);while(save.character.xp>=need(save.character.level)){save.character.xp-=need(save.character.level);save.character.level++}persist()}",
+              "function need(l){return Math.floor(180+95*Math.pow(l,1.6)+8*l*l)}\nfunction addXp(v){let n=need(save.character.level),gain=Math.min(Math.max(1,Math.floor(v)),Math.max(1,Math.floor(n*.12)));save.character.xp+=gain;if(save.character.xp>=n){save.character.xp-=n;save.character.level++;save.character.xp=Math.min(save.character.xp,Math.floor(need(save.character.level)*.5))}persist()}","xp curve")
+
+          old="function scale(){let x=save.character.level-1;return{d:1+x*.045+Math.pow(x,1.16)*.004,h:1+x*.05,a:x*1.35,r:1+x*.006,s:1+Math.min(.42,x*.0036),c:Math.min(.16,x*.0022),regen:x*.024}}\nfunction stats(){let l=scale(),damage=20*l.d*Math.pow(1.1,save.upgrades.power)*(1+.12*(save.gear.weapon-1))*(1+.1*rank('power')),maxHp=125*l.h*Math.pow(1.1,save.upgrades.hp)*(1+.1*(save.gear.armor-1));return{damage,maxHp,armor:l.a+(save.gear.armor-1)*3+save.upgrades.hp*.4,speed:165*l.s*Math.pow(1.05,save.upgrades.speed)*(1+.05*(save.gear.boots-1))*(1+.05*rank('speed')),rate:1.25*l.r*Math.pow(1.1,save.upgrades.rate)*Math.pow(1.105,rank('rate')),crit:Math.min(.78,.06+l.c+.025*save.upgrades.crit+.015*(save.gear.charm-1)+.05*rank('crit')),double:Math.min(.82,.04+.035*save.upgrades.double+.095*rank('double')),regen:l.regen+.18*save.upgrades.recovery+.42*rank('recovery'),lifesteal:.01*save.upgrades.lifesteal+.014*rank('lifesteal'),cargo:Math.pow(1.08,save.upgrades.cargo),multi:Math.min(4,1+rank('multi')),pierce:Math.min(4,rank('pierce')),bladeDamage:damage*(.65+.13*rank('blades'))*masteryScale('blades'),burnDps:damage*(.22+.07*rank('fire'))*masteryScale('fire'),burnDuration:2.5+.35*rank('fire'),frostDps:damage*(.14+.045*rank('frost'))*masteryScale('frost'),freezeDuration:.8+.18*rank('frost'),poisonDps:damage*(.16+.05*rank('poison'))*masteryScale('poison'),poisonRadius:34+3*rank('poison'),poisonDuration:4+.3*rank('poison')}}"
+          new="function scale(){let x=Math.min(250,Math.max(0,save.character.level-1));return{d:1+x*.025+Math.pow(x,1.08)*.003,h:1+x*.032,a:Math.min(80,x*.42),r:1+Math.min(.65,x*.0032),s:1+Math.min(.3,x*.0024),c:Math.min(.12,x*.0012),regen:x*.012}}\nfunction stats(){let l=scale(),rawDamage=20*l.d*Math.pow(1.075,save.upgrades.power)*(1+.09*(save.gear.weapon-1))*(1+.065*rank('power')),dCap=1400+Math.min(250,save.character.level)*18+save.world*120,damage=rawDamage/(1+rawDamage/dCap),rawHp=125*l.h*Math.pow(1.075,save.upgrades.hp)*(1+.08*(save.gear.armor-1)),hpCap=2200+Math.min(250,save.character.level)*22+save.world*180,maxHp=rawHp/(1+rawHp/hpCap),armor=Math.min(80,l.a+(save.gear.armor-1)*2.2+save.upgrades.hp*.25),speed=Math.min(230,165*l.s*Math.pow(1.025,save.upgrades.speed)*(1+.025*(save.gear.boots-1))*(1+.02*rank('speed'))),rate=Math.min(5,1.25*l.r*Math.pow(1.045,save.upgrades.rate)*Math.pow(1.045,rank('rate'))),crit=Math.min(.5,.06+l.c+.018*save.upgrades.crit+.01*(save.gear.charm-1)+.025*rank('crit')),double=Math.min(.5,.04+.025*save.upgrades.double+.055*rank('double')),regen=Math.min(maxHp*.018,l.regen+.12*save.upgrades.recovery+.24*rank('recovery')),lifesteal=Math.min(.08,.008*save.upgrades.lifesteal+.01*rank('lifesteal'));return{damage,maxHp,armor,speed,rate,crit,double,regen,lifesteal,cargo:Math.min(4,Math.pow(1.055,save.upgrades.cargo)),multi:Math.min(4,1+rank('multi')),pierce:Math.min(4,rank('pierce')),bladeDamage:damage*(.65+.09*Math.min(30,rank('blades')))*masteryScale('blades'),burnDps:damage*(.22+.045*Math.min(30,rank('fire')))*masteryScale('fire'),burnDuration:2.5+.25*Math.min(30,rank('fire')),frostDps:damage*(.14+.035*Math.min(30,rank('frost')))*masteryScale('frost'),freezeDuration:.8+.12*Math.min(30,rank('frost')),poisonDps:damage*(.16+.038*Math.min(30,rank('poison')))*masteryScale('poison'),poisonRadius:34+2*Math.min(40,rank('poison')),poisonDuration:4+.2*Math.min(30,rank('poison'))}}"
+          rep(old,new,"stat caps")
+
+          rep("function roadPoints(i){let r=rectFor(i),c=areaCenter(i),phase=(i%3-1)*85;return[{x:c.x,y:r.y+r.h-45},{x:c.x-170+phase,y:c.y+260},{x:c.x+120-phase*.4,y:c.y+80},{x:c.x-95-phase*.3,y:c.y-130},{x:c.x+150+phase*.25,y:r.y+60}]}",
+              "function roadPoints(i){let c=areaCenter(i),start=i>1?gateInfo(i-1):{x:c.x,y:c.y+280},end=i<12?gateInfo(i):{x:c.x,y:c.y-280},dx=end.x-start.x,dy=end.y-start.y,len=Math.hypot(dx,dy)||1,nx=-dy/len,ny=dx/len,w=70+((i*37)%55);return[start,{x:start.x+(c.x-start.x)*.48+nx*w,y:start.y+(c.y-start.y)*.48+ny*w},{x:c.x-nx*w*.35,y:c.y-ny*w*.35},{x:c.x+(end.x-c.x)*.55-nx*w*.7,y:c.y+(end.y-c.y)*.55-ny*w*.7},end]}","directional roads")
+
+          rep("function makeScenery(i){let r=rectFor(i),a=[];for(let k=0;k<56;k++){let x=r.x+70+((k*193+i*47)%(AREA_W-140)),y=r.y+70+((k*137+i*61)%(AREA_H-140));if(nearRoad(i,x,y,105))continue;let type=k%8===0||k%9===0?'hut':k%6===0?'ruin':k%4===0?'rock':'tree';let o={x,y,type,seed:k+i*13};if(a.some(q=>D(o,q)<sceneryRadius(o)+sceneryRadius(q)+15))continue;a.push(o)}return a}",
+              "function makeScenery(i){let r=rectFor(i),a=[];for(let k=0;k<34;k++){let x=r.x+85+((k*211+i*67)%(AREA_W-170)),y=r.y+85+((k*151+i*83)%(AREA_H-170));if(nearRoad(i,x,y,145))continue;let type=k%11===0||k%17===0?'hut':k%8===0?'ruin':k%5===0?'rock':'tree';let o={x,y,type,seed:k+i*13};if(a.some(q=>D(o,q)<sceneryRadius(o)+sceneryRadius(q)+30))continue;a.push(o)}return a}","lower scenery density")
+
+          rep("runXpNeed:7","runXpNeed:18","run skill xp start")
+
+          old="function spawnEnemy(kind,area,x,y,m=1){let type=(area-1)%6,e={x,y,homeX:x,homeY:y,area,type,r:kind==='tank'?23:kind==='runner'?14:18,hp:48*m,maxHp:48*m,speed:42+area,damage:9*m,kind,coin:1+Math.floor(m/2),xp:3+Math.floor(m),burn:0,burnDps:0,frost:0,frostDps:0,freeze:0};if(kind==='runner'){e.hp*=.72;e.maxHp=e.hp;e.speed*=1.5}if(kind==='tank'){e.hp*=2.6;e.maxHp=e.hp;e.speed*=.7;e.xp*=2}run.enemies.push(e)}"
+          new="function spawnEnemy(kind,area,x,y,m=1){let type=(area-1)%6,powerDps=Math.max(20,run.p.damage*run.p.rate*(1+run.p.crit)),baseHp=48*m,adaptiveHp=powerDps*(kind==='tank'?2.8:kind==='runner'?.8:1.35),hp=Math.max(baseHp,adaptiveHp),xp=3+Math.floor(area*.55)+Math.min(18,save.world*2),e={x,y,homeX:x,homeY:y,area,type,r:kind==='tank'?23:kind==='runner'?14:18,hp,maxHp:hp,speed:Math.min(95,42+area+save.world*2),damage:9*Math.sqrt(Math.max(1,m)),kind,coin:1+Math.min(12,Math.floor(Math.log2(Math.max(1,m)+1))),xp,burn:0,burnDps:0,frost:0,frostDps:0,freeze:0};if(kind==='runner'){e.hp*=.72;e.maxHp=e.hp;e.speed=Math.min(120,e.speed*1.35)}if(kind==='tank'){e.hp*=2.1;e.maxHp=e.hp;e.speed*=.72;e.xp*=2}run.enemies.push(e)}"
+          rep(old,new,"adaptive enemies")
+
+          old="function spawnBoss(i){let b=run.bosses[i];if(!b||b.spawned||b.defeated)return;let a=areaDef(i),m=a.difficulty*(a.worldBoss?3.2:1.35);b.spawned=true;run.enemies.push({x:b.x,y:b.y,homeX:b.x,homeY:b.y,area:i,type:(i+2)%6,r:a.worldBoss?68:46,hp:(a.worldBoss?5200:1250)*m,maxHp:(a.worldBoss?5200:1250)*m,speed:a.worldBoss?30:34,damage:(a.worldBoss?42:27)*m,kind:a.worldBoss?'worldboss':'boss',coin:(a.worldBoss?500:45*i),xp:(a.worldBoss?800:110+20*i),burn:0,burnDps:0,frost:0,frostDps:0,freeze:0,ability:a.ability,abilityCool:1.2,bossRef:b})}"
+          new="function spawnBoss(i){let b=run.bosses[i];if(!b||b.spawned||b.defeated)return;let a=areaDef(i),m=a.difficulty*(a.worldBoss?3.2:1.35),playerDps=Math.max(30,run.p.damage*run.p.rate*(1+run.p.crit+run.p.double*.5)+run.p.bladeDamage*2),baseHp=(a.worldBoss?5200:1250)*m,targetHp=playerDps*(a.worldBoss?32:14),hp=Math.max(baseHp,targetHp);b.spawned=true;run.enemies.push({x:b.x,y:b.y,homeX:b.x,homeY:b.y,area:i,type:(i+2)%6,r:a.worldBoss?68:46,hp,maxHp:hp,speed:a.worldBoss?30:34,damage:1,kind:a.worldBoss?'worldboss':'boss',coin:(a.worldBoss?500:45*i),xp:(a.worldBoss?900+save.world*80:130+18*i+save.world*20),burn:0,burnDps:0,frost:0,frostDps:0,freeze:0,ability:a.ability,abilityCool:1.2,bossRef:b})}"
+          rep(old,new,"adaptive bosses")
+
+          old="function tryMove(nx,ny){nx=clamp(nx,18,WORLD_W-18);ny=clamp(ny,18,WORLD_H-18);let target=whichArea(nx,ny);if(target===run.area){if(!blockedByScenery(nx,ny)){run.p.x=nx;run.p.y=ny}return}if(canEnter(run.area,target)){let old=run.area;run.area=target;if(!blockedByScenery(nx,ny)){save.area=target;save.maxArea=Math.max(save.maxArea,target);run.areaBanner=2.5;persist();run.p.x=nx;run.p.y=ny}else run.area=old}else run.areaBanner=1.1}"
+          new="function tryMove(nx,ny){nx=clamp(nx,18,WORLD_W-18);ny=clamp(ny,18,WORLD_H-18);let target=whichArea(nx,ny);if(target===run.area){if(!blockedByScenery(nx,ny)){run.p.x=nx;run.p.y=ny}else if(!blockedByScenery(nx,run.p.y))run.p.x=nx;else if(!blockedByScenery(run.p.x,ny))run.p.y=ny;return}if(canEnter(run.area,target)){let old=run.area;run.area=target;if(!blockedByScenery(nx,ny)){save.area=target;save.maxArea=Math.max(save.maxArea,target);run.areaBanner=2.5;persist();run.p.x=nx;run.p.y=ny}else run.area=old}else run.areaBanner=1.1}"
+          rep(old,new,"sliding collision")
+
+          old="function sacrificePrompt(mastered){if(save.mastery.processed10[mastered])return;let options=ACTIVE.filter(k=>k!==mastered&&activeEnabled(k));save.mastery.processed10[mastered]=true;if(!options.length){persist();ensureMasteryEffects();return}run.choosing=true;let el=$('#choiceList');el.innerHTML='';options.forEach(k=>{let b=document.createElement('button');b.className='choice';b.innerHTML=`<b>SACRIFICE ${k.toUpperCase()}</b><span>${mastered.toUpperCase()} Rank 10 mastery becomes permanent. ${k.toUpperCase()} is removed from your active loadout.</span>`;b.onclick=()=>{save.mastery.sacrificed[k]={rank:rank(k)};persist();run.choosing=false;$('#choiceOverlay').classList.add('hidden');ensureMasteryEffects();syncSkills()};el.appendChild(b)});$('#choiceOverlay').classList.remove('hidden')}"
+          new="function sacrificePrompt(mastered){if(save.mastery.processed10[mastered])return;let enabled=ACTIVE.filter(k=>activeEnabled(k)&&rank(k)>0),floor=2+(save.mastery.slotBonus||0);save.mastery.processed10[mastered]=true;if(enabled.length<=floor){persist();ensureMasteryEffects();return}let options=enabled.filter(k=>k!==mastered);if(!options.length){persist();ensureMasteryEffects();return}run.choosing=true;let el=$('#choiceList');el.innerHTML='';options.forEach(k=>{let b=document.createElement('button');b.className='choice';b.innerHTML=`<b>SACRIFICE ${k.toUpperCase()}</b><span>${mastered.toUpperCase()} Rank 10 mastery becomes permanent. Only currently active skills can be sacrificed.</span>`;b.onclick=()=>{save.mastery.sacrificed[k]={rank:rank(k)};persist();run.choosing=false;$('#choiceOverlay').classList.add('hidden');ensureMasteryEffects();syncSkills()};el.appendChild(b)});$('#choiceOverlay').classList.remove('hidden')}"
+          rep(old,new,"mastery sacrifice rules")
+
+          old="b.onclick=()=>{let old=save.mastery.sacrificed[k]?.rank||1;delete save.mastery.sacrificed[k];save.character.skills[k]=Math.max(1,old);delete save.mastery.halfDamage[k];persist();run.choosing=false;$('#choiceOverlay').classList.add('hidden');syncSkills();ensureMasteryEffects()}"
+          new="b.onclick=()=>{let old=save.mastery.sacrificed[k]?.rank||1;delete save.mastery.sacrificed[k];save.character.skills[k]=Math.max(1,old);delete save.mastery.halfDamage[k];save.mastery.slotBonus=(save.mastery.slotBonus||0)+1;persist();run.choosing=false;$('#choiceOverlay').classList.add('hidden');syncSkills();ensureMasteryEffects()}"
+          rep(old,new,"rank30 slot bonus")
+
+          old="function bossAbility(e,dt){e.abilityCool-=dt;if(e.abilityCool>0)return;e.abilityCool=e.kind==='worldboss'?1.15:2.25;let d=D(e,run.p),m=areaDef(e.area).difficulty;if(e.ability==='charge'&&d<500){let a=Math.atan2(run.p.y-e.y,run.p.x-e.x);e.x+=Math.cos(a)*150;e.y+=Math.sin(a)*150}if(e.ability==='slam'&&d<145)run.p.hp-=24*m;if(e.ability==='fire'&&d<380)run.p.hp-=16*m;if(e.ability==='poison')run.pools.push({x:run.p.x,y:run.p.y,r:62,life:3,dps:9*m,hostile:true});if(e.ability==='frost'&&d<320)run.p.hp-=12*m;if(e.ability==='summon')spawnPack(e.area,{x:e.x,y:e.y},4);if(e.ability==='dash'){let a=Math.atan2(run.p.y-e.y,run.p.x-e.x);e.x+=Math.cos(a)*190;e.y+=Math.sin(a)*190}if(e.ability==='nova'&&d<210)run.p.hp-=28*m;if(e.ability==='lightning'&&d<440)run.p.hp-=20*m;if(e.ability==='waves'&&d<280)run.p.hp-=22*m;if(e.ability==='meteor'&&d<400)run.p.hp-=27*m;if(e.ability==='void'&&d<250)run.p.hp-=32*m}"
+          new="function adaptiveHit(frac,minFrac=.018,maxFrac=.18){let raw=run.p.maxHp*clamp(frac,minFrac,maxFrac),mitigated=reducedDamage(raw);return Math.max(run.p.maxHp*minFrac,Math.min(run.p.maxHp*maxFrac,mitigated))}\nfunction bossAbility(e,dt){e.abilityCool-=dt;if(e.abilityCool>0)return;e.abilityCool=e.kind==='worldboss'?1.35:2.4;let d=D(e,run.p),wb=e.kind==='worldboss',b=wb?.02:0;if(e.ability==='charge'&&d<500){let a=Math.atan2(run.p.y-e.y,run.p.x-e.x);e.x+=Math.cos(a)*150;e.y+=Math.sin(a)*150}if(e.ability==='slam'&&d<145)run.p.hp-=adaptiveHit(.09+b);if(e.ability==='fire'&&d<380)run.p.hp-=adaptiveHit(.075+b);if(e.ability==='poison')run.pools.push({x:run.p.x,y:run.p.y,r:62,life:3,dps:run.p.maxHp*(wb?.032:.022),hostile:true});if(e.ability==='frost'&&d<320)run.p.hp-=adaptiveHit(.065+b);if(e.ability==='summon')spawnPack(e.area,{x:e.x,y:e.y},3);if(e.ability==='dash'){let a=Math.atan2(run.p.y-e.y,run.p.x-e.x);e.x+=Math.cos(a)*190;e.y+=Math.sin(a)*190}if(e.ability==='nova'&&d<210)run.p.hp-=adaptiveHit(.11+b);if(e.ability==='lightning'&&d<440)run.p.hp-=adaptiveHit(.095+b);if(e.ability==='waves'&&d<280)run.p.hp-=adaptiveHit(.1+b);if(e.ability==='meteor'&&d<400)run.p.hp-=adaptiveHit(.12+b);if(e.ability==='void'&&d<250)run.p.hp-=adaptiveHit(.14+b)}"
+          rep(old,new,"bounded boss damage")
+
+          rep("if(dist<e.r+run.p.r)run.p.hp-=reducedDamage(e.damage)*dt*.65;","if(dist<e.r+run.p.r){let pct=.012+Math.min(.026,e.area*.0012+Math.max(0,save.world-1)*.0025),dps=Math.max(run.p.maxHp*.006,reducedDamage(run.p.maxHp*pct));run.p.hp-=dps*dt};","bounded contact damage")
+
+          rep("run.runXpNeed=Math.floor(run.runXpNeed*1.2+3)","run.runXpNeed=Math.floor(run.runXpNeed*1.32+6)","skill rank pacing")
+
+          rep("let pool=[...SKILLS].sort(()=>Math.random()-.5).slice(0,3)","let pool=[...SKILLS].filter(k=>!ACTIVE.includes(k)||activeEnabled(k)).sort(()=>Math.random()-.5).slice(0,3)","hide sacrificed skills")
+
+          old="function drawPath(i){let p=roadPoints(i);ctx.strokeStyle='#c6ad78';ctx.lineWidth=76;ctx.lineCap='round';ctx.lineJoin='round';ctx.beginPath();ctx.moveTo(sx(p[0].x),sy(p[0].y));for(let k=1;k<p.length;k++)ctx.lineTo(sx(p[k].x),sy(p[k].y));ctx.stroke();ctx.strokeStyle='#8b744e';ctx.lineWidth=4;ctx.stroke()}"
+          new="function drawPath(i){let p=roadPoints(i);ctx.strokeStyle='#c6ad78';ctx.lineWidth=76;ctx.lineCap='round';ctx.lineJoin='round';ctx.beginPath();ctx.moveTo(sx(p[0].x),sy(p[0].y));for(let k=1;k<p.length-1;k++){let mx=(p[k].x+p[k+1].x)/2,my=(p[k].y+p[k+1].y)/2;ctx.quadraticCurveTo(sx(p[k].x),sy(p[k].y),sx(mx),sy(my))}ctx.lineTo(sx(p[p.length-1].x),sy(p[p.length-1].y));ctx.stroke();ctx.strokeStyle='#8b744e';ctx.lineWidth=4;ctx.stroke()}"
+          rep(old,new,"smooth roads")
+
+          p.write_text(s)
+
+          g=Path('app/build.gradle')
+          t=g.read_text().replace('versionCode 10','versionCode 11').replace("versionName '0.8.1'","versionName '0.8.2'")
+          g.write_text(t)
+          PY
+
+          git config user.name "Glitchbound Build Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add app/src/main/assets/www/game.js app/build.gradle
+          git commit -m "Balance v0.8.2 progression combat and navigation"
+          git push origin HEAD:main
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android platform
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build debug APK
+        run: gradle assembleDebug
+
+      - name: Rename APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk Glitchbound-v0.8.2-debug.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Glitchbound-v0.8.2-APK
+          path: Glitchbound-v0.8.2-debug.apk
