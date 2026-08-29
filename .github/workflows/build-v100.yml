@@ -1,0 +1,140 @@
+name: Build Glitchbound v1.0.0
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/build-v100.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Reconstruct v0.8.3 baseline and apply v1.0.0 systems
+        shell: bash
+        run: |
+          cat .build/v083.part1 .build/v083.part2 .build/v083.part3 | base64 -d | gzip -d > app/src/main/assets/www/game.js
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('app/src/main/assets/www/game.js')
+          s=p.read_text()
+
+          def must(old,new,label):
+              global s
+              if old not in s: raise SystemExit('missing '+label)
+              s=s.replace(old,new,1)
+
+          # Persisted loot/equipment state.
+          must("mastery:{sacrificed:{},halfDamage:{},processed10:{},processed20:{},processed30:{},slotBonus:0}};",
+               "mastery:{sacrificed:{},halfDamage:{},processed10:{},processed20:{},processed30:{},slotBonus:0},loot:{inventory:[],equipped:{weapon:null,head:null,hands:null,arms:null,legs:null,feet:null,ring1:null,ring2:null,necklace:null}}};",
+               'loot defaults')
+
+          # Rank-50 blades become the only active elemental/weapon skill.
+          must("function activeEnabled(k){return !save.mastery.sacrificed[k]}",
+               "function activeEnabled(k){if(rank('blades')>=50&&k!=='blades'&&ACTIVE.includes(k))return false;return !save.mastery.sacrificed[k]}",
+               'blade 50 lock')
+
+          # Add equipment, loot generation, item UI, potion and evolution helpers before screen routing.
+          marker="function open(n){"
+          if marker not in s: raise SystemExit('missing open marker')
+          helper=r'''
+const LOOT_SLOTS=['weapon','head','hands','arms','legs','feet','ring','necklace'];
+const RARITIES=[['COMMON','#d6d6d6',1],['UNCOMMON','#63c76a',1.25],['RARE','#5f9cff',1.6],['EPIC','#bd6cff',2.15],['LEGENDARY','#ffb43b',3]];
+function equipBonus(){let b={damage:0,hp:0,armor:0,rate:0,crit:0,speed:0,lifesteal:0};for(const k in save.loot.equipped){let it=save.loot.equipped[k];if(!it)continue;for(const q in it.stats)b[q]=(b[q]||0)+it.stats[q]}return b}
+const baseStatsV100=stats;
+stats=function(){let z=baseStatsV100(),b=equipBonus(),dm=1+b.damage,hp=1+b.hp;z.damage*=dm;z.maxHp*=hp;z.armor=Math.min(120,z.armor+b.armor);z.rate=Math.min(6,z.rate*(1+b.rate));z.crit=Math.min(.65,z.crit+b.crit);z.speed=Math.min(245,z.speed*(1+b.speed));z.lifesteal=Math.min(.12,z.lifesteal+b.lifesteal);z.bladeDamage*=dm;z.burnDps*=dm;z.frostDps*=dm;z.poisonDps*=dm;return z}
+function itemScore(it){return it?it.power:0}
+function rarityFor(e){let q=Math.random(),boost=(e.kind==='worldboss'?.28:e.kind==='boss'?.18:e.kind==='tank'?.06:0)+Math.min(.18,(e.size||1)-1)*.25+Math.min(.12,save.world*.012);q-=boost;if(q<.025)return 4;if(q<.09)return 3;if(q<.24)return 2;if(q<.52)return 1;return 0}
+function rollItem(e){let ri=rarityFor(e),rr=RARITIES[ri],slot=LOOT_SLOTS[Math.floor(Math.random()*LOOT_SLOTS.length)],size=e.size||1,base=(8+save.world*5+e.area*2+save.character.level*.6)*rr[2]*Math.pow(size,1.35),power=Math.max(1,Math.round(base)),prefix=['Ashen','Bloodforged','Grim','Iron','Storm','Frostbound','Venomous','Runed','Dread','Ancient'][Math.floor(Math.random()*10)],noun={weapon:'Axe',head:'Helm',hands:'Gauntlets',arms:'Bracers',legs:'Greaves',feet:'Boots',ring:'Ring',necklace:'Amulet'}[slot],stats={};if(slot==='weapon'){stats.damage=.025*rr[2]+power*.00035}else if(slot==='head'){stats.hp=.018*rr[2]+power*.00018;stats.armor=1.4*rr[2]+power*.018}else if(slot==='hands'){stats.rate=.008*rr[2]+power*.0001;stats.crit=.004*rr[2]+power*.000035}else if(slot==='arms'){stats.damage=.012*rr[2]+power*.00013;stats.armor=1.1*rr[2]+power*.012}else if(slot==='legs'){stats.hp=.016*rr[2]+power*.00015;stats.armor=1.6*rr[2]+power*.016}else if(slot==='feet'){stats.speed=.006*rr[2]+power*.000055;stats.armor=.8*rr[2]+power*.008}else if(slot==='ring'){stats.crit=.005*rr[2]+power*.00004;stats.lifesteal=.0015*rr[2]+power*.000012}else{stats.damage=.01*rr[2]+power*.0001;stats.hp=.01*rr[2]+power*.0001}return{id:Date.now().toString(36)+Math.random().toString(36).slice(2,7),slot,name:`${rr[0]} ${prefix} ${noun}`,rarity:ri,color:rr[1],power,stats}}
+function equipItem(id){let inv=save.loot.inventory,idx=inv.findIndex(x=>x.id===id);if(idx<0)return;let it=inv[idx],slot=it.slot;if(slot==='ring'){if(!save.loot.equipped.ring1)slot='ring1';else if(!save.loot.equipped.ring2)slot='ring2';else slot=itemScore(save.loot.equipped.ring1)<=itemScore(save.loot.equipped.ring2)?'ring1':'ring2'}let old=save.loot.equipped[slot];save.loot.equipped[slot]=it;inv.splice(idx,1);if(old)inv.push(old);persist();renderGear()}
+function unequipSlot(slot){let it=save.loot.equipped[slot];if(!it)return;if(save.loot.inventory.length<120)save.loot.inventory.push(it);save.loot.equipped[slot]=null;persist();renderGear()}
+function statText(it){if(!it)return '';let a=[];for(const k in it.stats){let v=it.stats[k];a.push(`${k.toUpperCase()} ${['armor'].includes(k)?'+'+v.toFixed(1):'+'+(v*100).toFixed(1)+'%'}`)}return a.join(' • ')}
+renderGear=function(){let el=$('#gearGrid');el.innerHTML='';let title=document.createElement('div');title.style.cssText='grid-column:1/-1;padding:8px;font-weight:800';title.textContent='EQUIPPED GEAR';el.appendChild(title);for(const slot of ['weapon','head','hands','arms','legs','feet','ring1','ring2','necklace']){let it=save.loot.equipped[slot],d=document.createElement('div');d.className='gear-slot';d.style.minHeight='110px';d.innerHTML=`<strong>${slot.toUpperCase()}</strong><div style="color:${it?it.color:'#777'};font-size:12px;margin:6px 0">${it?it.name:'EMPTY'}</div><div style="font-size:10px">${it?statText(it):''}</div>${it?'<button>UNEQUIP</button>':''}`;let b=d.querySelector('button');if(b)b.onclick=()=>unequipSlot(slot);el.appendChild(d)}let inv=document.createElement('div');inv.style.cssText='grid-column:1/-1;padding:10px 4px 4px;font-weight:800';inv.textContent=`INVENTORY ${save.loot.inventory.length}/120`;el.appendChild(inv);[...save.loot.inventory].sort((a,b)=>b.power-a.power).forEach(it=>{let d=document.createElement('div');d.className='gear-slot';d.style.minHeight='125px';d.innerHTML=`<strong style="color:${it.color}">${it.name}</strong><div>Power ${it.power}</div><div style="font-size:10px;margin:5px 0">${statText(it)}</div><button>EQUIP</button>`;d.querySelector('button').onclick=()=>equipItem(it.id);el.appendChild(d)});$('#powerText').textContent='Power '+Math.round(stats().damage*5)}
+function maybeLoot(e){let size=e.size||1,chance=Math.min(.9,.035*size*size+(e.kind==='tank'?.08:0)+(e.kind==='boss'?.7:0)+(e.kind==='worldboss'?1:0)),count=e.kind==='worldboss'?3:e.kind==='boss'?2:1;if(Math.random()<chance)for(let i=0;i<count;i++)run.lootDrops.push({x:e.x+(Math.random()-.5)*30,y:e.y+(Math.random()-.5)*30,item:rollItem(e),dead:false})}
+function maybePotion(e){let size=e.size||1,chance=Math.min(.8,.06*size+(e.kind==='tank'?.09:0)+(e.kind==='boss'?.45:0)+(e.kind==='worldboss'?.8:0));if(Math.random()<chance){let tier=size>=2.4?3:size>=1.55?2:1,heal=[0,.18,.35,.6][tier];run.potions.push({x:e.x,y:e.y,tier,heal,dead:false})}}
+function updateGroundLoot(dt){for(const d of run.lootDrops){let dist=D(d,run.p);if(dist<run.p.magnet){let a=Math.atan2(run.p.y-d.y,run.p.x-d.x);d.x+=Math.cos(a)*180*dt;d.y+=Math.sin(a)*180*dt}if(dist<24&&save.loot.inventory.length<120){save.loot.inventory.push(d.item);d.dead=true;persist()}}run.lootDrops=run.lootDrops.filter(x=>!x.dead);for(const q of run.potions){let dist=D(q,run.p);if(dist<run.p.magnet){let a=Math.atan2(run.p.y-q.y,run.p.x-q.x);q.x+=Math.cos(a)*190*dt;q.y+=Math.sin(a)*190*dt}if(dist<24){run.p.hp=Math.min(run.p.maxHp,run.p.hp+run.p.maxHp*q.heal);q.dead=true}}run.potions=run.potions.filter(x=>!x.dead)}
+function drawGroundLoot(){for(const d of run.lootDrops){let x=sx(d.x),y=sy(d.y);ctx.save();ctx.translate(x,y);ctx.fillStyle=d.item.color;ctx.fillRect(-6,-6,12,12);ctx.strokeStyle='#fff8';ctx.strokeRect(-7,-7,14,14);ctx.restore()}for(const q of run.potions){let x=sx(q.x),y=sy(q.y);ctx.save();ctx.translate(x,y);ctx.fillStyle=q.tier===3?'#ff2e2e':q.tier===2?'#dc4545':'#aa3a3a';ctx.fillRect(-7,-8,14,16);ctx.fillStyle='#f2e7cf';ctx.fillRect(-2,-5,4,10);ctx.fillRect(-5,-2,10,4);ctx.fillStyle='#7a5732';ctx.fillRect(-4,-12,8,5);ctx.restore()}}
+function skillTier(k){return Math.floor(rank(k)/5)}
+function radialBurst(element,count,mult,speed=430,pierce=1){for(let i=0;i<count;i++){let a=i*6.283/count;run.shots.push({x:run.p.x,y:run.p.y,vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,r:element==='blade'?7:9,damage:run.p.damage*mult,pierce,element})}}
+function ensureBladeRing(radius,count,key){if(!run.effects.some(e=>e.type==='blades'&&e.permanent&&e.key===key))run.effects.push({type:'blades',life:Infinity,permanent:true,key,radius,count,angle:key==='outer'?1.5:0,hit:new Map()})}
+function evolveSkills(dt){let tf=skillTier('fire'),tz=skillTier('frost'),tp=skillTier('poison'),rb=rank('blades');run.evo.fire-=dt;run.evo.frost-=dt;run.evo.poison-=dt;run.evo.blades-=dt;if(activeEnabled('fire')){if(tf>=3)for(const e of run.enemies)if(D(e,run.p)<115+tf*5)e.hp-=run.p.burnDps*.45*dt;if(tf>=4&&run.evo.fire<=0){radialBurst('fire',10+tf,1.2+tf*.12,390,2);run.evo.fire=Math.max(1.8,5-tf*.28)}if(tf>=6&&run.evo.fire<=1){for(const e of run.enemies)if(e.area===run.area)e.hp-=Math.min(e.maxHp*(e.kind==='boss'||e.kind==='worldboss'?.045:.18),run.p.damage*(2+tf*.4))}if(tf>=8&&run.evo.fire<=.2){for(const e of run.enemies)if(e.area===run.area)e.hp-=e.kind==='boss'||e.kind==='worldboss'?e.maxHp*.06:e.maxHp*.45}}if(activeEnabled('frost')){if(tz>=3)for(const e of run.enemies)if(D(e,run.p)<110+tz*5){e.frost=.4;e.freeze=Math.max(e.freeze,.08);e.hp-=run.p.frostDps*.35*dt}if(tz>=4&&run.evo.frost<=0){radialBurst('frost',12+tz,1+tz*.1,410,2);run.evo.frost=Math.max(2,5.3-tz*.25)}if(tz>=6&&run.evo.frost<=1)for(const e of run.enemies)if(e.area===run.area){e.freeze=Math.max(e.freeze,.5);e.hp-=run.p.frostDps*(1+tz*.25)}}if(activeEnabled('poison')){if(tp>=3)for(const e of run.enemies)if(D(e,run.p)<145+tp*7)e.hp-=run.p.poisonDps*.5*dt;if(tp>=4&&run.evo.poison<=0){radialBurst('poison',11+tp,1+tp*.1,360,2);run.pools.push({x:run.p.x,y:run.p.y,r:90+tp*8,life:5,dps:run.p.poisonDps*1.4});run.evo.poison=Math.max(2,5.5-tp*.25)}if(tp>=6&&run.evo.poison<=1)for(const e of run.enemies)if(e.area===run.area)e.hp-=run.p.poisonDps*(1+tp*.18)}if(rb>=25&&activeEnabled('blades')){ensureBladeRing(118,10+Math.floor((rb-25)/5),'outer');if(run.evo.blades<=0){radialBurst('blade',rb>=50?22:rb>=30?12:8,1.1+rb*.035,rb>=30?520:430,rb>=50?4:2);run.evo.blades=rb>=50?.55:rb>=30?1.3:3}}if(rb>=50){ensureBladeRing(82,16,'inner50');ensureBladeRing(126,18,'outer50')}}
+'''
+          s=s.replace(marker,helper+"\n"+marker,1)
+
+          # Run state gets item/potion/evolution collections.
+          must("scenery:{},cool:{fire:0,frost:0,poison:0,blades:0}",
+               "scenery:{},lootDrops:[],potions:[],evo:{fire:1.5,frost:2,poison:2.5,blades:2},cool:{fire:0,frost:0,poison:0,blades:0}",
+               'run loot state')
+
+          # Size-aware monsters: larger radius => much more HP, currency, XP and better loot.
+          s=re.sub(r"function spawnEnemy\(kind,area,x,y,m=1\)\{.*?run\.enemies\.push\(e\)\}",
+          "function spawnEnemy(kind,area,x,y,m=1){let type=(area-1)%6,roll=.82+Math.random()*1.05+(kind==='tank'?.28:0),size=Math.min(2.15,roll),r=(kind==='tank'?23:kind==='runner'?14:18)*size,powerDps=Math.max(20,run.p.damage*run.p.rate*(1+run.p.crit)),baseHp=48*m,adaptiveHp=powerDps*(kind==='tank'?2.8:kind==='runner'?.8:1.35),hp=Math.max(baseHp,adaptiveHp)*Math.pow(size,2.15),reward=Math.pow(size,1.7),xp=Math.round((3+area*.55+Math.min(18,save.world*2))*reward),coin=Math.max(1,Math.round((1+Math.min(12,Math.log2(Math.max(1,m)+1)))*reward)),e={x,y,homeX:x,homeY:y,area,type,r,size,hp,maxHp:hp,speed:Math.min(95,(42+area+save.world*2)/Math.sqrt(size)),damage:9*Math.sqrt(Math.max(1,m))*Math.pow(size,.65),kind,coin,xp,burn:0,burnDps:0,frost:0,frostDps:0,freeze:0};if(kind==='runner'){e.hp*=.72;e.maxHp=e.hp;e.speed=Math.min(120,e.speed*1.35)}if(kind==='tank'){e.hp*=2.1;e.maxHp=e.hp;e.speed*=.72;e.xp=Math.round(e.xp*2.2);e.coin=Math.round(e.coin*2)}run.enemies.push(e)}",
+          s,count=1,flags=re.S)
+
+          # Bosses carry explicit larger size and much larger rewards.
+          s=s.replace("kind:a.worldBoss?'worldboss':'boss',coin:(a.worldBoss?500:45*i),xp:(a.worldBoss?900+save.world*80:130+18*i+save.world*20)",
+                      "kind:a.worldBoss?'worldboss':'boss',size:a.worldBoss?3.4:2.55,coin:Math.round((a.worldBoss?950:110*i)*Math.pow(a.worldBoss?3.4:2.55,1.35)),xp:Math.round((a.worldBoss?1800+save.world*160:260+34*i+save.world*35)*Math.pow(a.worldBoss?3.4:2.55,1.18))")
+
+          # Blade rings support different radii.
+          s=s.replace("run.p.x+Math.cos(q)*78,y:run.p.y+Math.sin(q)*78","run.p.x+Math.cos(q)*(f.radius||78),y:run.p.y+Math.sin(q)*(f.radius||78)")
+          s=s.replace("drawBlade(sx(run.p.x+Math.cos(q)*78),sy(run.p.y+Math.sin(q)*78),q)","drawBlade(sx(run.p.x+Math.cos(q)*(f.radius||78)),sy(run.p.y+Math.sin(q)*(f.radius||78)),q)")
+
+          # Death now creates loot and potions before removing the monster.
+          must("dead.forEach(e=>{run.kills++;", "dead.forEach(e=>{maybeLoot(e);maybePotion(e);run.kills++;", 'death drops')
+
+          # Pick up physical loot/potions and evolve skills every frame.
+          must("ensureMasteryEffects();applyPermanentMasteries(dt);", "ensureMasteryEffects();applyPermanentMasteries(dt);evolveSkills(dt);", 'evolution update')
+          must("run.numbers.forEach(n=>{n.life-=dt;n.y-=20*dt});", "updateGroundLoot(dt);run.numbers.forEach(n=>{n.life-=dt;n.y-=20*dt});", 'pickup update')
+
+          # Draw physical loot and potion bottles.
+          must("drawMasteryAuras();run.drops.forEach", "drawMasteryAuras();drawGroundLoot();run.drops.forEach", 'draw pickups')
+
+          # More readable blade projectiles.
+          s=s.replace("s.element==='poison'?'#63d94f':'#f5dc82'","s.element==='poison'?'#63d94f':s.element==='blade'?'#dfe7ef':'#f5dc82'")
+
+          # Skill selection caps and five-rank evolution notes. Rank 50 blades excludes other active skills.
+          old="let pool=[...SKILLS].sort(()=>Math.random()-.5).slice(0,3),el=$('#choiceList');"
+          new="let pool=[...SKILLS].filter(k=>{if(ACTIVE.includes(k)){if(rank('blades')>=50&&k!=='blades')return false;return rank(k)<50}return rank(k)<30}).sort(()=>Math.random()-.5).slice(0,3),el=$('#choiceList');"
+          must(old,new,'choice caps')
+          s=s.replace("let note=ACTIVE.includes(k)?'Rank 10 transforms permanently; Rank 20 retrains a lost skill; Rank 30 restores another slot.':'Permanent skill improvement';",
+                      "let next=rank(k)+1,t=ACTIVE.includes(k)&&next%5===0?` • EVOLUTION TIER ${Math.floor(next/5)}`:'',note=ACTIVE.includes(k)?`Every 5 ranks transforms this skill${t}. Blades gain an outer ring at 25, continuous thrown blades at 30, and become the only active skill at 50.`:'Permanent skill improvement';")
+
+          p.write_text(s)
+          PY
+          node --check app/src/main/assets/www/game.js
+          sed -i "s/versionCode 10/versionCode 20/" app/build.gradle
+          sed -i "s/versionName '0.8.1'/versionName '1.0.0'/" app/build.gradle
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android platform
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build APK
+        run: gradle assembleDebug --no-daemon
+
+      - name: Rename APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk Glitchbound-v1.0.0-debug.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Glitchbound-v1.0.0-APK
+          path: Glitchbound-v1.0.0-debug.apk
+          retention-days: 90
