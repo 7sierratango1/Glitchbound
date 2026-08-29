@@ -24,7 +24,6 @@ jobs:
           p=Path('.build/v100_patch.py')
           s=p.read_text()
           s=s.replace("must(old,new,'choice caps')", "s,n=re.subn(r\"let pool=\\[\\.\\.\\.SKILLS\\].*?,el=\\$\\('#choiceList'\\);\",new,s,count=1); n==1 or (_ for _ in ()).throw(SystemExit('missing choice caps'))")
-          s=s.replace("must(old,new,'choice notes')", "s,n=re.subn(r\"let note=ACTIVE\\.includes\\(k\\)\\?.*?;\",new,s,count=1); n==1 or (_ for _ in ()).throw(SystemExit('missing choice notes'))")
           p.write_text(s)
           PY
 
