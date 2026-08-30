@@ -33,16 +33,31 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Build debug APK
+      - name: Build Glitchbound debug APK
         run: gradle --no-daemon assembleDebug
 
-      - name: Rename APK
+      - name: Rename Glitchbound APK
         run: cp app/build/outputs/apk/debug/app-debug.apk Glitchbound-v0.1-debug.apk
 
-      - name: Upload APK
+      - name: Upload Glitchbound APK
         uses: actions/upload-artifact@v4
         with:
           name: Glitchbound-APK
           path: Glitchbound-v0.1-debug.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Build Torque Match debug APK
+        working-directory: torque-match
+        run: gradle --no-daemon assembleDebug
+
+      - name: Rename Torque Match APK
+        run: cp torque-match/app/build/outputs/apk/debug/app-debug.apk TorqueMatch-v0.1.0-debug.apk
+
+      - name: Upload Torque Match APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: TorqueMatch-APK
+          path: TorqueMatch-v0.1.0-debug.apk
           if-no-files-found: error
           retention-days: 30
