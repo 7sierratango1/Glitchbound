@@ -35,6 +35,8 @@ jobs:
           gradle-version: '8.9'
       - name: Apply challenge chapter system
         run: python3 tools/patch_challenges.py
+      - name: Fix challenge renderer compile collision
+        run: python3 tools/fix_challenge_compile.py
       - name: Apply part-specific audio hooks
         run: python3 tools/patch_audio_hooks.py
       - name: Generate automotive audio bank
