@@ -1,0 +1,55 @@
+name: Build Malfunction Marbles v0.6.0 APK
+
+on:
+  push:
+    branches: [ malfunction-marbles-build ]
+    paths:
+      - 'malfunction-v060/**'
+      - '.github/workflows/build-malfunction-v060.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Restore v0.3.0 baseline
+        run: |
+          mkdir -p mm040
+          base64 -d malfunction-v030/source.zip.b64 > baseline.zip
+          unzip -q baseline.zip -d mm040
+      - name: Apply v0.4.0 upgrade
+        run: python malfunction-v040/upgrade.py
+      - name: Promote to v0.5.0 workspace
+        run: mv mm040 mm050
+      - name: Apply v0.5.0 upgrade
+        run: python malfunction-v050/upgrade.py
+      - name: Promote to v0.6.0 workspace
+        run: mv mm050 mm060
+      - name: Apply v0.6.0 physics and graphics
+        run: python malfunction-v060/upgrade.py
+      - name: Package source
+        run: cd mm060 && zip -qr ../MalfunctionMarbles-v0.6.0-source.zip .
+      - name: Build debug APK
+        working-directory: mm060
+        run: gradle :app:assembleDebug --stacktrace
+      - name: Stage APK
+        run: cp mm060/app/build/outputs/apk/debug/app-debug.apk MalfunctionMarbles-v0.6.0.apk
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: MalfunctionMarbles-v0.6.0-APK
+          path: MalfunctionMarbles-v0.6.0.apk
+      - name: Upload Source
+        uses: actions/upload-artifact@v4
+        with:
+          name: MalfunctionMarbles-v0.6.0-Source
+          path: MalfunctionMarbles-v0.6.0-source.zip
