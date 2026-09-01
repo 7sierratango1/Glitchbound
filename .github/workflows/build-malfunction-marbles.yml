@@ -1,0 +1,33 @@
+name: Build Malfunction Marbles APK
+
+on:
+  push:
+    branches: [ malfunction-marbles-build ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Build debug APK
+        working-directory: malfunction-marbles
+        run: gradle :app:assembleDebug --stacktrace
+      - name: Package source
+        run: cd malfunction-marbles && zip -r ../MalfunctionMarbles-v0.2.0-source.zip . -x 'app/build/*' '.gradle/*'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MalfunctionMarbles-v0.2.0-APK
+          path: malfunction-marbles/app/build/outputs/apk/debug/app-debug.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MalfunctionMarbles-v0.2.0-Source
+          path: MalfunctionMarbles-v0.2.0-source.zip
