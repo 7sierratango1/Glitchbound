@@ -25,6 +25,18 @@ jobs:
         run: unzip -t MetadataScrubber-Build1-Source.zip
       - name: Unpack source
         run: unzip -q MetadataScrubber-Build1-Source.zip
+      - name: Apply Android 16 compatibility fix
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('MetadataScrubber-Build1/app/src/main/java/com/technicallyunavailable/metadatascrubber/MediaCleaner.java')
+          s = p.read_text()
+          old = 'finally { r.release(); }'
+          new = 'finally { try { r.release(); } catch (java.io.IOException ignored) {} }'
+          if old not in s:
+              raise SystemExit('Expected MediaMetadataRetriever cleanup line not found')
+          p.write_text(s.replace(old, new, 1))
+          PY
       - name: Build debug APK
         working-directory: MetadataScrubber-Build1
         run: gradle :app:assembleDebug --stacktrace
